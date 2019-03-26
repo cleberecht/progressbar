@@ -1,13 +1,16 @@
 package me.tongfei.progressbar;
 
-import java.io.PrintStream;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
+
 import java.io.IOException;
+import java.io.PrintStream;
 import java.text.DecimalFormat;
 import java.time.Duration;
 import java.time.Instant;
-
-import org.jline.terminal.Terminal;
-import org.jline.terminal.TerminalBuilder;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * @author Tongfei Chen
@@ -25,6 +28,10 @@ class ProgressThread implements Runnable {
     String unitName = "";
     long unitSize = 1;
     boolean isSpeedShown;
+
+    private final List<BitOfInformation> bitsOfInformation;
+
+    private int occupiedLines;
 
     private static int consoleRightMargin = 2;
     private static DecimalFormat speedFormat = new DecimalFormat("#.#");
@@ -48,28 +55,31 @@ class ProgressThread implements Runnable {
         this.unitName = unitName;
         this.unitSize = unitSize;
         this.isSpeedShown = isSpeedShown;
-
+        this.bitsOfInformation = Collections.synchronizedList(new ArrayList<>());
         try {
             // Issue #42
             // Defaulting to a dumb terminal when a supported terminal can not be correctly created
             // see https://github.com/jline/jline3/issues/291
             this.terminal = TerminalBuilder.builder().dumb(true).build();
-        }
-        catch (IOException ignored) { }
+        } catch (IOException ignored) {
 
-        if (terminal.getWidth() >= 10)  // Workaround for issue #23 under IntelliJ
+        }
+        // Workaround for issue #23 under IntelliJ
+        if (terminal.getWidth() >= 10) {
             consoleWidth = terminal.getWidth();
+        }
+        occupiedLines = 1 + bitsOfInformation.size();
     }
 
     // between 0 and 1
     double progress() {
         if (progress.max <= 0) return 0.0;
-        else return ((double)progress.current) / progress.max;
+        else return ((double) progress.current) / progress.max;
     }
 
     // Number of full blocks
     int progressIntegralPart() {
-        return (int)(progress() * length);
+        return (int) (progress() * length);
     }
 
     int progressFractionalPart() {
@@ -82,8 +92,8 @@ class ProgressThread implements Runnable {
         if (progress.max <= 0 || progress.indefinite) return "?";
         else if (progress.current == 0) return "?";
         else return Util.formatDuration(
-                elapsed.dividedBy(progress.current)
-                        .multipliedBy(progress.max - progress.current)
+                    elapsed.dividedBy(progress.current)
+                            .multipliedBy(progress.max - progress.current)
             );
     }
 
@@ -107,8 +117,12 @@ class ProgressThread implements Runnable {
         return speedFormat.format(speedWithUnit) + unitName + "/s";
     }
 
+    public void addBitsOfInformation(BitOfInformation bitOfInformation) {
+        bitsOfInformation.add(bitOfInformation);
+    }
+
     void refresh() {
-        consoleStream.print('\r');
+        consoleStream.print(((char) 0x1b) + "[" + occupiedLines + "A\r");
 
         Instant currTime = Instant.now();
         Duration elapsed = Duration.between(progress.startTime, currTime);
@@ -129,7 +143,7 @@ class ProgressThread implements Runnable {
 
         // case of indefinite progress bars
         if (progress.indefinite) {
-            int pos = (int)(progress.current % length);
+            int pos = (int) (progress.current % length);
             sb.append(Util.repeat(style.space, pos));
             sb.append(style.block);
             sb.append(Util.repeat(style.space, length - pos - 1));
@@ -145,22 +159,42 @@ class ProgressThread implements Runnable {
 
         sb.append(suffix);
         String line = sb.toString();
+        consoleStream.println(line);
+        printBits();
+    }
 
-        consoleStream.print(line);
+    private void printBits() {
+        int bitWidth = 0;
+        // +1 for progressbar, +1 for trailing println
+        occupiedLines = 2;
+        for (BitOfInformation bitOfInformation : bitsOfInformation) {
+            bitWidth += bitOfInformation.getLength();
+            if (bitWidth > consoleWidth) {
+                occupiedLines++;
+                consoleStream.println();
+                consoleStream.print(bitOfInformation.getBit());
+            } else {
+                consoleStream.print(bitOfInformation.getBit());
+                consoleStream.print(" ");
+            }
+        }
+        consoleStream.println();
     }
 
     void kill() {
-    	killed = true;
+        killed = true;
     }
 
     public void run() {
         try {
+            consoleStream.println();
             while (!killed) {
                 refresh();
                 Thread.sleep(updateInterval);
             }
             refresh();
             // do-while loop not right: must force to refresh after stopped
-        } catch (InterruptedException ignored) { }
+        } catch (InterruptedException ignored) {
+        }
     }
 }

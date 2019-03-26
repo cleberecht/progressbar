@@ -132,6 +132,10 @@ public class ProgressBar implements AutoCloseable {
         return this;
     }
 
+    public void addBitOfInformation(BitOfInformation bitOfInformation) {
+        this.target.addBitsOfInformation(bitOfInformation);
+    }
+
     /**
      * Stops this progress bar.
      * @deprecated Please use the Java try-with-resource pattern instead.
