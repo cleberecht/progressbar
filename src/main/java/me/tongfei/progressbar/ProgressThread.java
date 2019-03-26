@@ -18,6 +18,14 @@ import java.util.List;
  */
 class ProgressThread implements Runnable {
 
+    public static final String INITIALIZE_CSI = ((char) 0x1b) + "[";
+
+    // see https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_sequences
+    public static final char MOVE_TO_COLUMN = 'G';
+    public static final char CLEAR_LINE = 'K';
+    public static final char MOVE_UP = 'A';
+
+
     volatile boolean killed;
     ProgressBarStyle style;
     ProgressState progress;
@@ -122,7 +130,7 @@ class ProgressThread implements Runnable {
     }
 
     void refresh() {
-        consoleStream.print(((char) 0x1b) + "[" + occupiedLines + "A\r");
+        clear();
 
         Instant currTime = Instant.now();
         Duration elapsed = Duration.between(progress.startTime, currTime);
@@ -173,12 +181,25 @@ class ProgressThread implements Runnable {
                 occupiedLines++;
                 consoleStream.println();
                 consoleStream.print(bitOfInformation.getBit());
+                bitWidth = 0;
             } else {
                 consoleStream.print(bitOfInformation.getBit());
                 consoleStream.print(" ");
+                bitWidth++;
             }
         }
         consoleStream.println();
+    }
+
+    private void clear() {
+        for (int i = 0; i < occupiedLines; i++) {
+            // move cursor to first column
+            consoleStream.print(INITIALIZE_CSI + MOVE_TO_COLUMN);
+            // clear line from beginning to end
+            consoleStream.print(INITIALIZE_CSI + CLEAR_LINE);
+            // move one row up
+            consoleStream.print(INITIALIZE_CSI + MOVE_UP);
+        }
     }
 
     void kill() {

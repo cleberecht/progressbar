@@ -26,7 +26,6 @@ public class Tester {
                 sumBit.setInformation(String.valueOf(sum));
                 timeBit.setInformation(Instant.now().toString());
                 pb.step();
-
             }
         }
         System.out.println("Text after");
