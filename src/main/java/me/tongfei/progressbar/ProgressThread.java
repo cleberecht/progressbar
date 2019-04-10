@@ -22,17 +22,21 @@ import java.util.concurrent.TimeUnit;
 public class ProgressThread implements Runnable {
 
     // see https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_sequences
+    public static final int DEFAULT_UPDATE_INTERVAL = 1000/2;
+
     private static final String INITIALIZE_CSI = ((char) 0x1b) + "[";
     private static final char MOVE_TO_COLUMN = 'G';
     private static final char CLEAR_LINE = 'K';
     private static final char MOVE_UP = 'A';
+
+    private static final int MINIMAL_WIDTH = 10;
+    private int consoleWidth;
 
     private ProgressBarStyle style;
     private ProgressState progress;
     private long updateInterval;
     private PrintStream printStream;
     private Terminal terminal;
-    private int consoleWidth = 80;
     private String unitName;
     private long unitSize;
     private boolean isSpeedShown;
@@ -65,9 +69,9 @@ public class ProgressThread implements Runnable {
 
         }
         // Workaround for issue #23 under IntelliJ
-        if (terminal.getWidth() >= 10) {
-            consoleWidth = terminal.getWidth();
-        }
+//        if (terminal.getWidth() >= 10) {
+//            consoleWidth = terminal.getWidth();
+//        }
         occupiedLines = 1 + bitsOfInformation.size();
     }
 
@@ -77,6 +81,13 @@ public class ProgressThread implements Runnable {
 
     public Terminal getTerminal() {
         return terminal;
+    }
+
+    public void determineTerminalWidth() {
+        consoleWidth = terminal.getWidth();
+        if (consoleWidth <= MINIMAL_WIDTH) {
+            consoleWidth = MINIMAL_WIDTH;
+        }
     }
 
     // between 0 and 1
@@ -139,6 +150,7 @@ public class ProgressThread implements Runnable {
 
     void refresh() {
         clear();
+        determineTerminalWidth();
 
         Instant currTime = Instant.now();
         Duration elapsed = Duration.between(progress.startTime, currTime);
@@ -215,6 +227,10 @@ public class ProgressThread implements Runnable {
         try {
             if (!executorService.awaitTermination(updateInterval, TimeUnit.MILLISECONDS)) {
                 executorService.shutdownNow();
+            }
+            // if current state did not hit the maximal value in last refresh but finished anyway
+            if (progress.isFinished()) {
+                refresh();
             }
         } catch (InterruptedException e) {
             e.printStackTrace();

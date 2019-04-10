@@ -72,6 +72,10 @@ class ProgressState {
         }
     }
 
+    public synchronized boolean isFinished() {
+        return getCurrent() >= max;
+    }
+
     synchronized long getMax() {
         return max;
     }
