@@ -11,6 +11,7 @@ import java.io.PrintStream;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.Spliterator;
+import java.util.function.Supplier;
 import java.util.stream.BaseStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -199,6 +200,10 @@ public class ProgressBar implements AutoCloseable {
      */
     public String getExtraMessage() {
         return progress.getExtraMessage();
+    }
+
+    public void bind(Supplier<Long> supplier) {
+        progress.bindCurrentTo(supplier);
     }
 
     // STATIC WRAPPER METHODS

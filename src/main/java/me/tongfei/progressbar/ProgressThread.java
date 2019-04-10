@@ -82,7 +82,7 @@ class ProgressThread implements Runnable {
     // between 0 and 1
     double progress() {
         if (progress.max <= 0) return 0.0;
-        else return ((double) progress.current) / progress.max;
+        else return ((double) progress.getCurrent()) / progress.max;
     }
 
     // Number of full blocks
@@ -98,29 +98,29 @@ class ProgressThread implements Runnable {
 
     String eta(Duration elapsed) {
         if (progress.max <= 0 || progress.indefinite) return "?";
-        else if (progress.current == 0) return "?";
+        else if (progress.getCurrent() == 0) return "?";
         else return Util.formatDuration(
-                    elapsed.dividedBy(progress.current)
-                            .multipliedBy(progress.max - progress.current)
+                    elapsed.dividedBy(progress.getCurrent())
+                            .multipliedBy(progress.max - progress.getCurrent())
             );
     }
 
     String percentage() {
         String res;
         if (progress.max <= 0 || progress.indefinite) res = "? %";
-        else res = String.valueOf((int) Math.floor(100.0 * progress.current / progress.max)) + "%";
+        else res = String.valueOf((int) Math.floor(100.0 * progress.getCurrent() / progress.max)) + "%";
         return Util.repeat(' ', 4 - res.length()) + res;
     }
 
     String ratio() {
         String m = progress.indefinite ? "?" : String.valueOf(progress.max / unitSize);
-        String c = String.valueOf(progress.current / unitSize);
+        String c = String.valueOf(progress.getCurrent() / unitSize);
         return Util.repeat(' ', m.length() - c.length()) + c + "/" + m + unitName;
     }
 
     String speed(Duration elapsed) {
         if (elapsed.getSeconds() == 0) return "?" + unitName + "/s";
-        double speed = (double) progress.current / elapsed.getSeconds();
+        double speed = (double) progress.getCurrent() / elapsed.getSeconds();
         double speedWithUnit = speed / unitSize;
         return speedFormat.format(speedWithUnit) + unitName + "/s";
     }
@@ -151,7 +151,7 @@ class ProgressThread implements Runnable {
 
         // case of indefinite progress bars
         if (progress.indefinite) {
-            int pos = (int) (progress.current % length);
+            int pos = (int) (progress.getCurrent() % length);
             sb.append(Util.repeat(style.space, pos));
             sb.append(style.block);
             sb.append(Util.repeat(style.space, length - pos - 1));
@@ -159,7 +159,7 @@ class ProgressThread implements Runnable {
         // case of definite progress bars
         else {
             sb.append(Util.repeat(style.block, progressIntegralPart()));
-            if (progress.current < progress.max) {
+            if (progress.getCurrent() < progress.max) {
                 sb.append(style.fractionSymbols.charAt(progressFractionalPart()));
                 sb.append(Util.repeat(style.space, length - progressIntegralPart() - 1));
             }
@@ -207,6 +207,7 @@ class ProgressThread implements Runnable {
     }
 
     public void run() {
+        // TODO use scheduler with fixed time interval
         try {
             consoleStream.println();
             while (!killed) {

@@ -1,6 +1,7 @@
 package me.tongfei.progressbar;
 
 import java.time.Instant;
+import java.util.function.Supplier;
 
 /**
  * Encapsulates the internal states of a progress bar.
@@ -10,16 +11,23 @@ import java.time.Instant;
 class ProgressState {
 
     String task;
+    private long current = 0;
     boolean indefinite = false;
-    long current = 0;
     long max = 0;
     Instant startTime = null;
     String extraMessage = "";
+
+    private Supplier<Long> supplier;
+
 
     ProgressState(String task, long initialMax) {
         this.task = task;
         this.max = initialMax;
         if (initialMax < 0) indefinite = true;
+    }
+
+    public void bindCurrentTo(Supplier<Long> supplier) {
+        this.supplier = supplier;
     }
 
     synchronized void setAsDefinite() {
@@ -56,8 +64,12 @@ class ProgressState {
         return extraMessage;
     }
 
-    synchronized long getCurrent() {
-        return current;
+    public synchronized long getCurrent() {
+        if (supplier == null) {
+            return current;
+        } else {
+            return supplier.get();
+        }
     }
 
     synchronized long getMax() {
