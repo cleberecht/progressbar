@@ -5,7 +5,6 @@ import me.tongfei.progressbar.wrapped.ProgressBarWrappedIterable;
 import me.tongfei.progressbar.wrapped.ProgressBarWrappedIterator;
 import me.tongfei.progressbar.wrapped.ProgressBarWrappedSpliterator;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.time.Instant;
@@ -156,27 +155,16 @@ public class ProgressBar implements AutoCloseable {
     }
 
     /**
-     * <p>Stops this progress bar, effectively stops tracking the underlying process.</p>
-     * <p>Implements the {@link AutoCloseable} interface which enables the try-with-resource
-     * pattern with progress bars.</p>
+     * Stops this progress bar, effectively stops tracking the underlying process.
+     * Implements the {@link AutoCloseable} interface which enables the try-with-resource
+     * pattern with progress bars.
      *
      * @since 0.7.0
      */
     @Override
     public void close() {
-        target.kill();
-        try {
-            thread.join();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        target.getPrintStream().print("\n");
-        target.getPrintStream().flush();
-        try {
-            target.getTerminal().close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        target.shutdownObservation();
+        target.shutdownTerminal();
     }
 
     /**

@@ -11,6 +11,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Tongfei Chen
@@ -24,12 +27,10 @@ public class ProgressThread implements Runnable {
     private static final char CLEAR_LINE = 'K';
     private static final char MOVE_UP = 'A';
 
-
-    private volatile boolean killed;
     private ProgressBarStyle style;
     private ProgressState progress;
     private long updateInterval;
-    private PrintStream consoleStream;
+    private PrintStream printStream;
     private Terminal terminal;
     private int consoleWidth = 80;
     private String unitName;
@@ -44,13 +45,13 @@ public class ProgressThread implements Runnable {
     private static DecimalFormat speedFormat = new DecimalFormat("#.#");
 
     private int length;
+    private ScheduledExecutorService executorService;
 
     ProgressThread(ProgressState progress, ProgressBarStyle style, long updateInterval, PrintStream consoleStream, String unitName, long unitSize, boolean isSpeedShown) {
         this.progress = progress;
         this.style = style;
         this.updateInterval = updateInterval;
-        this.consoleStream = consoleStream;
-        this.killed = false;
+        this.printStream = consoleStream;
         this.unitName = unitName;
         this.unitSize = unitSize;
         this.isSpeedShown = isSpeedShown;
@@ -71,7 +72,7 @@ public class ProgressThread implements Runnable {
     }
 
     public PrintStream getPrintStream() {
-        return consoleStream;
+        return printStream;
     }
 
     public Terminal getTerminal() {
@@ -174,7 +175,7 @@ public class ProgressThread implements Runnable {
 
         sb.append(suffix);
         String line = sb.toString();
-        consoleStream.println(line);
+        printStream.println(line);
         printBits();
     }
 
@@ -186,44 +187,56 @@ public class ProgressThread implements Runnable {
             bitWidth += bitOfInformation.getLength();
             if (bitWidth > consoleWidth) {
                 occupiedLines++;
-                consoleStream.println();
-                consoleStream.print(bitOfInformation.getBit());
+                printStream.println();
+                printStream.print(bitOfInformation.getBit());
                 bitWidth = 0;
             } else {
-                consoleStream.print(bitOfInformation.getBit());
-                consoleStream.print(" ");
+                printStream.print(bitOfInformation.getBit());
+                printStream.print(" ");
                 bitWidth++;
             }
         }
-        consoleStream.println();
+        printStream.println();
     }
 
     private void clear() {
         for (int i = 0; i < occupiedLines; i++) {
             // move cursor to first column
-            consoleStream.print(INITIALIZE_CSI + MOVE_TO_COLUMN);
+            printStream.print(INITIALIZE_CSI + MOVE_TO_COLUMN);
             // clear line from beginning to end
-            consoleStream.print(INITIALIZE_CSI + CLEAR_LINE);
+            printStream.print(INITIALIZE_CSI + CLEAR_LINE);
             // move one row up
-            consoleStream.print(INITIALIZE_CSI + MOVE_UP);
+            printStream.print(INITIALIZE_CSI + MOVE_UP);
         }
     }
 
-    void kill() {
-        killed = true;
-    }
-
-    public void run() {
-        // TODO use scheduler with fixed time interval
+    public void shutdownObservation() {
+        executorService.shutdown();
         try {
-            consoleStream.println();
-            while (!killed) {
-                refresh();
-                Thread.sleep(updateInterval);
+            if (!executorService.awaitTermination(updateInterval, TimeUnit.MILLISECONDS)) {
+                executorService.shutdownNow();
             }
-            refresh();
-            // do-while loop not right: must force to refresh after stopped
-        } catch (InterruptedException ignored) {
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
+    }
+
+    public void shutdownTerminal() {
+        // clean exit: finish last line and flush print stream
+        printStream.print(INITIALIZE_CSI + MOVE_UP);
+        printStream.println();
+        printStream.flush();
+        try {
+            terminal.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void run() {
+        System.out.println();
+        executorService = Executors.newSingleThreadScheduledExecutor();
+        executorService.scheduleAtFixedRate(this::refresh, 0, updateInterval, TimeUnit.MILLISECONDS);
     }
 }
