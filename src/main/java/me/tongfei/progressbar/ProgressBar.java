@@ -5,8 +5,8 @@ import me.tongfei.progressbar.wrapped.ProgressBarWrappedIterable;
 import me.tongfei.progressbar.wrapped.ProgressBarWrappedIterator;
 import me.tongfei.progressbar.wrapped.ProgressBarWrappedSpliterator;
 
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.time.Instant;
 import java.util.Iterator;
@@ -18,6 +18,7 @@ import java.util.stream.StreamSupport;
 
 /**
  * A console-based progress bar with minimal runtime overhead.
+ *
  * @author Tongfei Chen
  */
 public class ProgressBar implements AutoCloseable {
@@ -28,7 +29,8 @@ public class ProgressBar implements AutoCloseable {
 
     /**
      * Creates a progress bar with the specific task name and initial maximum value.
-     * @param task Task name
+     *
+     * @param task       Task name
      * @param initialMax Initial maximum value
      */
     public ProgressBar(String task, long initialMax) {
@@ -56,12 +58,13 @@ public class ProgressBar implements AutoCloseable {
     /**
      * Creates a progress bar with the specific task name, initial maximum value,
      * customized update interval (default 1000 ms), the PrintStream to be used, and output style.
-     * @param task Task name
-     * @param initialMax Initial maximum value
+     *
+     * @param task                 Task name
+     * @param initialMax           Initial maximum value
      * @param updateIntervalMillis Update interval (default value 1000 ms)
-     * @param os Print stream (default value System.err)
-     * @param style Output style (default value ProgressBarStyle.UNICODE_BLOCK)
-     * @param showSpeed Should the calculated speed be displayed
+     * @param os                   Print stream (default value System.err)
+     * @param style                Output style (default value ProgressBarStyle.UNICODE_BLOCK)
+     * @param showSpeed            Should the calculated speed be displayed
      */
     public ProgressBar(
             String task,
@@ -84,6 +87,7 @@ public class ProgressBar implements AutoCloseable {
 
     /**
      * Starts this progress bar.
+     *
      * @deprecated Please use the Java try-with-resource pattern instead.
      */
     @Deprecated
@@ -95,6 +99,7 @@ public class ProgressBar implements AutoCloseable {
 
     /**
      * Advances this progress bar by a specific amount.
+     *
      * @param n Step size
      */
     public ProgressBar stepBy(long n) {
@@ -104,6 +109,7 @@ public class ProgressBar implements AutoCloseable {
 
     /**
      * Advances this progress bar to the specific progress value.
+     *
      * @param n New progress value
      */
     public ProgressBar stepTo(long n) {
@@ -121,6 +127,7 @@ public class ProgressBar implements AutoCloseable {
 
     /**
      * Gives a hint to the maximum value of the progress bar.
+     *
      * @param n Hint of the maximum value
      */
     public ProgressBar maxHint(long n) {
@@ -134,11 +141,12 @@ public class ProgressBar implements AutoCloseable {
     }
 
     public void addBitOfInformation(BitOfInformation bitOfInformation) {
-        this.target.addBitsOfInformation(bitOfInformation);
+        this.target.addBitOfInformation(bitOfInformation);
     }
 
     /**
      * Stops this progress bar.
+     *
      * @deprecated Please use the Java try-with-resource pattern instead.
      */
     @Deprecated
@@ -151,6 +159,7 @@ public class ProgressBar implements AutoCloseable {
      * <p>Stops this progress bar, effectively stops tracking the underlying process.</p>
      * <p>Implements the {@link AutoCloseable} interface which enables the try-with-resource
      * pattern with progress bars.</p>
+     *
      * @since 0.7.0
      */
     @Override
@@ -158,15 +167,21 @@ public class ProgressBar implements AutoCloseable {
         target.kill();
         try {
             thread.join();
-            target.consoleStream.print("\n");
-            target.consoleStream.flush();
-            target.terminal.close();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
-        catch (InterruptedException | IOException ignored) { }
+        target.getPrintStream().print("\n");
+        target.getPrintStream().flush();
+        try {
+            target.getTerminal().close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
      * Sets the extra message at the end of the progress bar.
+     *
      * @param msg New message
      */
     public ProgressBar setExtraMessage(String msg) {
@@ -174,7 +189,7 @@ public class ProgressBar implements AutoCloseable {
         return this;
     }
 
-	/**
+    /**
      * Returns the current progress.
      */
     public long getCurrent() {
@@ -210,7 +225,8 @@ public class ProgressBar implements AutoCloseable {
 
     /**
      * Wraps an iterator so that when iterated, a progress bar is shown to track the traversal progress.
-     * @param it Underlying iterator
+     *
+     * @param it   Underlying iterator
      * @param task Task name
      */
     public static <T> Iterator<T> wrap(Iterator<T> it, String task) {
@@ -221,7 +237,8 @@ public class ProgressBar implements AutoCloseable {
 
     /**
      * Wraps an iterator so that when iterated, a progress bar is shown to track the traversal progress.
-     * @param it Underlying iterator
+     *
+     * @param it  Underlying iterator
      * @param pbb Progress bar builder
      */
     public static <T> Iterator<T> wrap(Iterator<T> it, ProgressBarBuilder pbb) {
@@ -232,10 +249,11 @@ public class ProgressBar implements AutoCloseable {
      * Wraps an {@link Iterable} so that when iterated, a progress bar is shown to track the traversal progress.
      * <p>
      * Sample usage: {@code
-     *   for (T x : ProgressBar.wrap(collection, "Traversal")) { ... }
+     * for (T x : ProgressBar.wrap(collection, "Traversal")) { ... }
      * }
      * </p>
-     * @param ts Underlying iterable
+     *
+     * @param ts   Underlying iterable
      * @param task Task name
      */
     public static <T> Iterable<T> wrap(Iterable<T> ts, String task) {
@@ -245,7 +263,8 @@ public class ProgressBar implements AutoCloseable {
     /**
      * Wraps an {@link Iterable} so that when iterated, a progress bar is shown to track the traversal progress.
      * For this function the progress bar can be fully customized by using a {@link ProgressBarBuilder}.
-     * @param ts Underlying iterable
+     *
+     * @param ts  Underlying iterable
      * @param pbb An instance of a {@link ProgressBarBuilder}
      */
     public static <T> Iterable<T> wrap(Iterable<T> ts, ProgressBarBuilder pbb) {
@@ -257,7 +276,8 @@ public class ProgressBar implements AutoCloseable {
 
     /**
      * Wraps an {@link InputStream} so that when read, a progress bar is shown to track the reading progress.
-     * @param is Input stream to be wrapped
+     *
+     * @param is   Input stream to be wrapped
      * @param task Name of the progress
      */
     public static InputStream wrap(InputStream is, String task) {
@@ -268,7 +288,8 @@ public class ProgressBar implements AutoCloseable {
     /**
      * Wraps an {@link InputStream} so that when read, a progress bar is shown to track the reading progress.
      * For this function the progress bar can be fully customized by using a {@link ProgressBarBuilder}.
-     * @param is Input stream to be wrapped
+     *
+     * @param is  Input stream to be wrapped
      * @param pbb An instance of a {@link ProgressBarBuilder}
      */
     public static InputStream wrap(InputStream is, ProgressBarBuilder pbb) {
@@ -280,7 +301,8 @@ public class ProgressBar implements AutoCloseable {
 
     /**
      * Wraps a {@link Spliterator} so that when iterated, a progress bar is shown to track the traversal progress.
-     * @param sp Underlying spliterator
+     *
+     * @param sp   Underlying spliterator
      * @param task Task name
      */
     public static <T> Spliterator<T> wrap(Spliterator<T> sp, String task) {
@@ -291,7 +313,8 @@ public class ProgressBar implements AutoCloseable {
     /**
      * Wraps a {@link Spliterator} so that when iterated, a progress bar is shown to track the traversal progress.
      * For this function the progress bar can be fully customized by using a {@link ProgressBarBuilder}.
-     * @param sp Underlying spliterator
+     *
+     * @param sp  Underlying spliterator
      * @param pbb An instance of a {@link ProgressBarBuilder}
      */
     public static <T> Spliterator<T> wrap(Spliterator<T> sp, ProgressBarBuilder pbb) {
@@ -303,8 +326,9 @@ public class ProgressBar implements AutoCloseable {
 
     /**
      * Wraps a {@link Stream} so that when iterated, a progress bar is shown to track the traversal progress.
+     *
      * @param stream Underlying stream (can be sequential or parallel)
-     * @param task Task name
+     * @param task   Task name
      */
     public static <T, S extends BaseStream<T, S>> Stream<T> wrap(S stream, String task) {
         ProgressBarBuilder pbb = new ProgressBarBuilder().setTaskName(task);
@@ -314,8 +338,9 @@ public class ProgressBar implements AutoCloseable {
     /**
      * Wraps a {@link Stream} so that when iterated, a progress bar is shown to track the traversal progress.
      * For this function the progress bar can be fully customized by using a {@link ProgressBarBuilder}.
+     *
      * @param stream Underlying stream (can be sequential or parallel)
-     * @param pbb An instance of a {@link ProgressBarBuilder}
+     * @param pbb    An instance of a {@link ProgressBarBuilder}
      */
     public static <T, S extends BaseStream<T, S>> Stream<T> wrap(S stream, ProgressBarBuilder pbb) {
         Spliterator<T> sp = wrap(stream.spliterator(), pbb);

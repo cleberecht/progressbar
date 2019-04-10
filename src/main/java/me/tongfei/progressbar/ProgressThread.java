@@ -16,26 +16,25 @@ import java.util.List;
  * @author Tongfei Chen
  * @since 0.5.0
  */
-class ProgressThread implements Runnable {
-
-    public static final String INITIALIZE_CSI = ((char) 0x1b) + "[";
+public class ProgressThread implements Runnable {
 
     // see https://en.wikipedia.org/wiki/ANSI_escape_code#CSI_sequences
-    public static final char MOVE_TO_COLUMN = 'G';
-    public static final char CLEAR_LINE = 'K';
-    public static final char MOVE_UP = 'A';
+    private static final String INITIALIZE_CSI = ((char) 0x1b) + "[";
+    private static final char MOVE_TO_COLUMN = 'G';
+    private static final char CLEAR_LINE = 'K';
+    private static final char MOVE_UP = 'A';
 
 
-    volatile boolean killed;
-    ProgressBarStyle style;
-    ProgressState progress;
-    long updateInterval;
-    PrintStream consoleStream;
-    Terminal terminal;
-    int consoleWidth = 80;
-    String unitName = "";
-    long unitSize = 1;
-    boolean isSpeedShown;
+    private volatile boolean killed;
+    private ProgressBarStyle style;
+    private ProgressState progress;
+    private long updateInterval;
+    private PrintStream consoleStream;
+    private Terminal terminal;
+    private int consoleWidth = 80;
+    private String unitName;
+    private long unitSize;
+    private boolean isSpeedShown;
 
     private final List<BitOfInformation> bitsOfInformation;
 
@@ -46,15 +45,7 @@ class ProgressThread implements Runnable {
 
     private int length;
 
-    ProgressThread(
-            ProgressState progress,
-            ProgressBarStyle style,
-            long updateInterval,
-            PrintStream consoleStream,
-            String unitName,
-            long unitSize,
-            boolean isSpeedShown
-    ) {
+    ProgressThread(ProgressState progress, ProgressBarStyle style, long updateInterval, PrintStream consoleStream, String unitName, long unitSize, boolean isSpeedShown) {
         this.progress = progress;
         this.style = style;
         this.updateInterval = updateInterval;
@@ -79,53 +70,69 @@ class ProgressThread implements Runnable {
         occupiedLines = 1 + bitsOfInformation.size();
     }
 
+    public PrintStream getPrintStream() {
+        return consoleStream;
+    }
+
+    public Terminal getTerminal() {
+        return terminal;
+    }
+
     // between 0 and 1
-    double progress() {
-        if (progress.max <= 0) return 0.0;
-        else return ((double) progress.getCurrent()) / progress.max;
+    private double getProgress() {
+        if (progress.max <= 0) {
+            return 0.0;
+        }
+        return ((double) progress.getCurrent()) / progress.max;
     }
 
     // Number of full blocks
-    int progressIntegralPart() {
-        return (int) (progress() * length);
+    private int getIntegralProgress() {
+        return (int) (getProgress() * length);
     }
 
-    int progressFractionalPart() {
-        double p = progress() * length;
+    private int getFractionalProgress() {
+        double p = getProgress() * length;
         double fraction = (p - Math.floor(p)) * style.fractionSymbols.length();
         return (int) Math.floor(fraction);
     }
 
-    String eta(Duration elapsed) {
-        if (progress.max <= 0 || progress.indefinite) return "?";
-        else if (progress.getCurrent() == 0) return "?";
-        else return Util.formatDuration(
-                    elapsed.dividedBy(progress.getCurrent())
-                            .multipliedBy(progress.max - progress.getCurrent())
-            );
+    private String estimateTimeRemaining(Duration elapsed) {
+        if (progress.max <= 0 || progress.indefinite) {
+            return "?";
+        }
+        if (progress.getCurrent() == 0) {
+            return "?";
+        }
+        return Util.formatDuration(elapsed.dividedBy(progress.getCurrent()).multipliedBy(progress.max - progress.getCurrent()));
     }
 
-    String percentage() {
-        String res;
-        if (progress.max <= 0 || progress.indefinite) res = "? %";
-        else res = String.valueOf((int) Math.floor(100.0 * progress.getCurrent() / progress.max)) + "%";
-        return Util.repeat(' ', 4 - res.length()) + res;
+    private String getPercentageProgress() {
+        String result;
+        if (progress.max <= 0 || progress.indefinite) {
+            result = "? %";
+        } else {
+            result = (int) Math.floor(100.0 * progress.getCurrent() / progress.max) + "%";
+        }
+        return Util.repeat(' ', 4 - result.length()) + result;
     }
 
-    String ratio() {
+    private String getRatioProgress() {
         String m = progress.indefinite ? "?" : String.valueOf(progress.max / unitSize);
         String c = String.valueOf(progress.getCurrent() / unitSize);
         return Util.repeat(' ', m.length() - c.length()) + c + "/" + m + unitName;
     }
 
-    String speed(Duration elapsed) {
-        if (elapsed.getSeconds() == 0) return "?" + unitName + "/s";
+    private String getSpeed(Duration elapsed) {
+        if (elapsed.getSeconds() == 0) {
+            return "?" + unitName + "/s";
+        }
         double speed = (double) progress.getCurrent() / elapsed.getSeconds();
         double speedWithUnit = speed / unitSize;
         return speedFormat.format(speedWithUnit) + unitName + "/s";
     }
 
-    public void addBitsOfInformation(BitOfInformation bitOfInformation) {
+    public void addBitOfInformation(BitOfInformation bitOfInformation) {
         bitsOfInformation.add(bitOfInformation);
     }
 
@@ -135,12 +142,12 @@ class ProgressThread implements Runnable {
         Instant currTime = Instant.now();
         Duration elapsed = Duration.between(progress.startTime, currTime);
 
-        String prefix = progress.task + " " + percentage() + " " + style.leftBracket;
+        String prefix = progress.task + " " + getPercentageProgress() + " " + style.leftBracket;
 
         int maxSuffixLength = Math.max(0, consoleWidth - consoleRightMargin - prefix.length() - 10);
-        String speedString = isSpeedShown ? speed(elapsed) : "";
-        String suffix = style.rightBracket + " " + ratio()
-                + " (" + Util.formatDuration(elapsed) + " / " + eta(elapsed) + ") "
+        String speedString = isSpeedShown ? getSpeed(elapsed) : "";
+        String suffix = style.rightBracket + " " + getRatioProgress()
+                + " (" + Util.formatDuration(elapsed) + " / " + estimateTimeRemaining(elapsed) + ") "
                 + speedString + progress.extraMessage;
         if (suffix.length() > maxSuffixLength) suffix = suffix.substring(0, maxSuffixLength);
 
@@ -158,10 +165,10 @@ class ProgressThread implements Runnable {
         }
         // case of definite progress bars
         else {
-            sb.append(Util.repeat(style.block, progressIntegralPart()));
+            sb.append(Util.repeat(style.block, getIntegralProgress()));
             if (progress.getCurrent() < progress.max) {
-                sb.append(style.fractionSymbols.charAt(progressFractionalPart()));
-                sb.append(Util.repeat(style.space, length - progressIntegralPart() - 1));
+                sb.append(style.fractionSymbols.charAt(getFractionalProgress()));
+                sb.append(Util.repeat(style.space, length - getIntegralProgress() - 1));
             }
         }
 
